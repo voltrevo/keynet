@@ -1,0 +1,26 @@
+FROM debian:stable-slim
+
+# Install Tor, Caddy, Python, cryptography, OpenSSL
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        tor caddy python3 python3-cryptography \
+        openssl ca-certificates curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create dirs
+RUN mkdir -p /var/lib/tor /etc/keynet /srv/www
+
+# Simple demo content
+RUN bash -lc 'echo "<h1>Keynet test service</h1><p>Hello from inside Docker.</p>" > /srv/www/index.html'
+
+# Keynet helper script: derive keynet address and PEM key from Tor keys
+COPY keynet_setup.py /usr/local/bin/keynet_setup.py
+RUN chmod +x /usr/local/bin/keynet_setup.py
+
+# Entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 443 9001
+
+ENTRYPOINT ["/entrypoint.sh"]
