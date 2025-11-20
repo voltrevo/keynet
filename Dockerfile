@@ -18,6 +18,10 @@ RUN bash -lc 'echo "<h1>Keynet test service</h1><p>Hello from inside Docker.</p>
 COPY keynet_setup.py /usr/local/bin/keynet_setup.py
 RUN chmod +x /usr/local/bin/keynet_setup.py
 
+# Cert renewal script
+COPY cert_renewer.sh /usr/local/bin/cert_renewer.sh
+RUN chmod +x /usr/local/bin/cert_renewer.sh
+
 # Entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

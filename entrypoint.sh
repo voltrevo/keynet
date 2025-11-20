@@ -71,7 +71,19 @@ cat "$TORRC"
 # 6) Generate self-signed cert using the PEM key derived from Tor identity
 CERT_CRT="${CERT_DIR}/ed25519-cert.pem"
 
+# Check if cert exists and is valid for at least 30 days
+REGEN_CERT=0
 if [ ! -f "$CERT_CRT" ]; then
+  REGEN_CERT=1
+else
+  # Check if cert expires in less than 30 days
+  if ! openssl x509 -in "$CERT_CRT" -noout -checkend 2592000 2>/dev/null; then
+    REGEN_CERT=1
+    echo "[keynet] certificate expiring soon, regenerating..."
+  fi
+fi
+
+if [ "$REGEN_CERT" -eq 1 ]; then
   echo "[keynet] generating self-signed cert using Tor Ed25519 identity..."
   openssl req -new -x509 -key "$CERT_KEY" -out "$CERT_CRT" \
     -days 365 \
@@ -99,10 +111,14 @@ echo "[keynet] starting Tor with final config..."
 su -s /bin/bash -c "tor -f '$TORRC'" debian-tor &
 TOR_PID=$!
 
-# 10) Start Caddy in foreground
+# 10) Start certificate renewal daemon
+/usr/local/bin/cert_renewer.sh "$CERT_KEY" "$CERT_CRT" "$KEYNET_ADDR" &
+RENEWER_PID=$!
+
+# 11) Start Caddy in foreground
 /usr/bin/caddy run --config "$CADDYFILE" --adapter caddyfile &
 CADDY_PID=$!
 
-trap 'kill $TOR_PID $HTTP_PID 2>/dev/null || true' EXIT
+trap 'kill $TOR_PID $HTTP_PID $RENEWER_PID 2>/dev/null || true' EXIT
 
 wait "$CADDY_PID"
