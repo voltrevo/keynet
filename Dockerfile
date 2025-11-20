@@ -20,10 +20,6 @@ COPY src /app/src
 WORKDIR /app
 RUN npm install
 
-# Cert renewal script
-COPY cert_renewer.sh /usr/local/bin/cert_renewer.sh
-RUN chmod +x /usr/local/bin/cert_renewer.sh
-
 # Entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

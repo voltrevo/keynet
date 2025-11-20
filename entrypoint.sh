@@ -95,7 +95,7 @@ su -s /bin/bash -c "tor -f '$TORRC'" debian-tor &
 TOR_PID=$!
 
 # 10) Start certificate renewal daemon
-/usr/local/bin/cert_renewer.sh "$CERT_KEY" "$CERT_CRT" "$KEYNET_ADDR" &
+npx tsx /app/src/cert-renewer.ts "$CERT_KEY" "$CERT_CRT" "$KEYNET_ADDR" &
 RENEWER_PID=$!
 
 # 11) Start Caddy in foreground
