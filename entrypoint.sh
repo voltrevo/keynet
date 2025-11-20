@@ -22,30 +22,13 @@ ClientOnly 0
 ExitRelay 1
 EOF
 
-# 2) Start Tor once to generate identity keys
-echo "[keynet] starting Tor to generate keys..."
-su -s /bin/bash -c "tor -f '$TORRC'" debian-tor &
-TOR_PID=$!
+# 2) Generate or load Ed25519 keys and derive keynet address
+mkdir -p "$DATA_DIR/keys"
+chown -R debian-tor:debian-tor "$DATA_DIR/keys"
 
-# Wait for keys to appear
-while [ ! -f "$DATA_DIR/keys/ed25519_master_id_public_key" ] || \
-      [ ! -f "$DATA_DIR/keys/ed25519_master_id_secret_key" ]; do
-  sleep 1
-done
-
-sleep 2
-
-# Stop Tor; we'll restart with final exit policy
-echo "[keynet] keys generated, stopping Tor..."
-kill "$TOR_PID" || true
-wait "$TOR_PID" 2>/dev/null || true
-
-# 3) Compute keynet address and export PEM key from Tor identity
 CERT_KEY="${CERT_DIR}/ed25519-key.pem"
-KEYNET_ADDR=$(python3 /usr/local/bin/keynet_setup.py \
-  "$DATA_DIR/keys/ed25519_master_id_public_key" \
-  "$DATA_DIR/keys/ed25519_master_id_secret_key" \
-  "$CERT_KEY")
+echo "[keynet] generating/loading Ed25519 keys..."
+KEYNET_ADDR=$(npx tsx /app/src/keynet-setup.ts "$DATA_DIR/keys" "$CERT_KEY")
 
 if [ -z "$KEYNET_ADDR" ]; then
   echo "[keynet] ERROR: failed to compute keynet address"

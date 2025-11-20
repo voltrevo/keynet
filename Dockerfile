@@ -1,9 +1,9 @@
 FROM debian:stable-slim
 
-# Install Tor, Caddy, Python, cryptography, OpenSSL
+# Install Tor, Caddy, Node.js, OpenSSL
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        tor caddy python3 python3-cryptography \
+        tor caddy nodejs npm \
         openssl ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
 
@@ -14,9 +14,11 @@ RUN mkdir -p /var/lib/tor /etc/keynet /srv/www && \
 # Simple demo content
 RUN bash -lc 'echo "<h1>Keynet test service</h1><p>Hello from inside Docker.</p>" > /srv/www/index.html'
 
-# Keynet helper script: derive keynet address and PEM key from Tor keys
-COPY keynet_setup.py /usr/local/bin/keynet_setup.py
-RUN chmod +x /usr/local/bin/keynet_setup.py
+# Keynet TypeScript project
+COPY package.json tsconfig.json /app/
+COPY src /app/src
+WORKDIR /app
+RUN npm install
 
 # Cert renewal script
 COPY cert_renewer.sh /usr/local/bin/cert_renewer.sh

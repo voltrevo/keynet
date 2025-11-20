@@ -54,8 +54,12 @@ From this directory:
 
 ```bash
 docker build -t keynet-test .
-docker run --rm -p 443:443 -p 9001:9001 keynet-test
+docker run --rm -p 443:443 -p 9001:9001 \
+  -v ~/keynet-data/tor-keys/keys:/var/lib/tor/keys \
+  keynet-test
 ```
+
+The volume mount persists the Tor relay identity across container restarts. If the keys directory is empty, new keys will be generated on first run.
 
 On startup you'll see output similar to:
 
