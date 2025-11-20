@@ -7,6 +7,8 @@ WWW_DIR="/srv/www"
 CADDYFILE="/etc/caddy/Caddyfile"
 
 mkdir -p "$DATA_DIR" "$CERT_DIR" /etc/caddy
+# Ensure proper ownership for Tor data directory
+chown -R debian-tor:debian-tor "$DATA_DIR"
 
 # 1) Base torrc (we'll append ExitPolicy after we know our IP)
 TORRC="/etc/tor/torrc"
@@ -22,7 +24,7 @@ EOF
 
 # 2) Start Tor once to generate identity keys
 echo "[keynet] starting Tor to generate keys..."
-tor -f "$TORRC" &
+su -s /bin/bash -c "tor -f '$TORRC'" debian-tor &
 TOR_PID=$!
 
 # Wait for keys to appear
@@ -94,7 +96,7 @@ cat "$CADDYFILE"
 
 # 9) Start Tor with final exit policy
 echo "[keynet] starting Tor with final config..."
-tor -f "$TORRC" &
+su -s /bin/bash -c "tor -f '$TORRC'" debian-tor &
 TOR_PID=$!
 
 # 10) Start Caddy in foreground

@@ -8,17 +8,9 @@ from cryptography.hazmat.primitives import serialization
 
 
 def load_tor_ed25519_blob(path: str, header_prefix: str) -> bytes:
-    """Load and base64-decode a Tor ed25519 key file."""
-    with open(path, "r", encoding="ascii") as f:
-        lines = [l.strip() for l in f.readlines() if l.strip()]
-
-    if lines and lines[0].startswith(header_prefix):
-        b64 = "".join(lines[1:])
-    else:
-        b64 = "".join(lines)
-
-    raw = base64.b64decode(b64)
-    return raw
+    """Load a Tor ed25519 key file (binary format)."""
+    with open(path, "rb") as f:
+        return f.read()
 
 
 def extract_pubkey_from_public_blob(raw: bytes) -> bytes:

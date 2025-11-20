@@ -7,8 +7,9 @@ RUN apt-get update && \
         openssl ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Create dirs
-RUN mkdir -p /var/lib/tor /etc/keynet /srv/www
+# Create dirs and set proper ownership for Tor
+RUN mkdir -p /var/lib/tor /etc/keynet /srv/www && \
+    chown -R debian-tor:debian-tor /var/lib/tor
 
 # Simple demo content
 RUN bash -lc 'echo "<h1>Keynet test service</h1><p>Hello from inside Docker.</p>" > /srv/www/index.html'
