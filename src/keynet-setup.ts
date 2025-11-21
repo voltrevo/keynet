@@ -6,7 +6,8 @@
 
 import { ed25519 } from '@noble/curves/ed25519';
 import { sha3_256 } from '@noble/hashes/sha3';
-import { randomBytes } from 'crypto';
+import { sha512 } from '@noble/hashes/sha512';
+import { createHash, generateKeyPairSync, createPublicKey } from 'crypto';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 
@@ -34,14 +35,15 @@ function writeTorPublicKey(path: string, publicKey: Uint8Array): void {
   const header = Buffer.from('== ed25519v1-public: type0 ==\x00\x00\x00');
   const keyData = Buffer.concat([header, Buffer.from(publicKey)]);
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, keyData);
+  writeFileSync(path, keyData, { mode: 0o600 });
 }
 
 /**
  * Write Tor ed25519_master_id_secret_key format:
  * 32 bytes: "== ed25519v1-secret: type0 =="
- * 32 bytes: Ed25519 secret key (seed)
- * 32 bytes: Ed25519 public key
+ * 64 bytes: Ed25519 expanded secret key (seed + scalar)
+ * 
+ * The expanded scalar is derived from the seed using RFC 8032 key expansion.
  */
 function writeTorSecretKey(
   path: string,
@@ -49,11 +51,24 @@ function writeTorSecretKey(
   publicKey: Uint8Array
 ): void {
   const header = Buffer.from('== ed25519v1-secret: type0 ==\x00\x00\x00');
+  
+  // RFC 8032 Ed25519 key expansion:
+  // 1. Hash the 32-byte seed with SHA-512 to get 64 bytes
+  const hash = sha512(privateKey);
+  
+  // 2. Take the first 32 bytes and apply bit manipulations to get the scalar
+  const scalar = new Uint8Array(hash.slice(0, 32));
+  scalar[0] &= 248;  // Clear lowest 3 bits
+  scalar[31] &= 127; // Clear highest bit
+  scalar[31] |= 64;  // Set second highest bit
+  
+  // 3. Write: header + seed + expanded scalar (96 bytes total)
   const keyData = Buffer.concat([
     header,
-    Buffer.from(privateKey),
-    Buffer.from(publicKey),
+    Buffer.from(privateKey),  // 32-byte seed
+    Buffer.from(scalar)        // 32-byte expanded scalar
   ]);
+  
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, keyData, { mode: 0o600 });
 }
@@ -163,6 +178,84 @@ function writePemPrivateKey(path: string, privateKey: Uint8Array): void {
 }
 
 /**
+ * Calculate RSA fingerprint (SHA-1 of the public key in DER format)
+ */
+function calculateRsaFingerprint(publicKeyDer: Buffer): Buffer {
+  return createHash('sha1').update(publicKeyDer).digest();
+}
+
+/**
+ * Extract DER-encoded RSA public key from PEM
+ */
+function extractRsaPublicKeyDer(publicKeyPem: string): Buffer {
+  const base64 = publicKeyPem
+    .replace(/-----BEGIN RSA PUBLIC KEY-----/, '')
+    .replace(/-----END RSA PUBLIC KEY-----/, '')
+    .replace(/\s/g, '');
+  return Buffer.from(base64, 'base64');
+}
+
+/**
+ * Generate RSA keypair with fingerprint matching first byte of target
+ */
+function generateMatchingRsaKey(targetBytes: Uint8Array): { privateKey: string; publicKey: string; fingerprint: Buffer; attempts: number } {
+  const targetPrefix = Buffer.from(targetBytes.slice(0, 1));
+  console.error(`[keynet] Searching for RSA key with fingerprint starting with: ${targetPrefix.toString('hex')}`);
+  
+  let attempts = 0;
+  const maxAttempts = 10000; // Safety limit (should find match quickly with 1 byte)
+  
+  while (attempts < maxAttempts) {
+    attempts++;
+    
+    // Generate RSA keypair
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', {
+      modulusLength: 1024, // Tor uses 1024-bit RSA keys
+      publicKeyEncoding: {
+        type: 'pkcs1',
+        format: 'pem'
+      },
+      privateKeyEncoding: {
+        type: 'pkcs1',
+        format: 'pem'
+      }
+    });
+    
+    // Calculate fingerprint
+    const publicKeyDer = extractRsaPublicKeyDer(publicKey);
+    const fingerprint = calculateRsaFingerprint(publicKeyDer);
+    
+    // Check if first byte matches
+    if (fingerprint[0] === targetPrefix[0]) {
+      console.error(`[keynet] Found matching RSA key after ${attempts} attempts`);
+      console.error(`[keynet] RSA fingerprint: ${fingerprint.toString('hex').toUpperCase()}`);
+      return { privateKey, publicKey, fingerprint, attempts };
+    }
+    
+    if (attempts % 100 === 0) {
+      console.error(`[keynet] Searched ${attempts} RSA keys so far...`);
+    }
+  }
+  
+  throw new Error(`Failed to find matching RSA key after ${maxAttempts} attempts`);
+}
+
+/**
+ * Write Tor RSA secret key
+ */
+function writeTorRsaSecretKey(path: string, privateKeyPem: string): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, privateKeyPem, { mode: 0o600 });
+}
+
+/**
+ * Read Tor RSA secret key
+ */
+function readTorRsaSecretKey(path: string): string {
+  return readFileSync(path, 'utf-8');
+}
+
+/**
  * Main setup function
  */
 function setupKeynet(
@@ -172,6 +265,7 @@ function setupKeynet(
 ): KeynetSetupResult {
   const publicKeyPath = `${torKeysDir}/ed25519_master_id_public_key`;
   const secretKeyPath = `${torKeysDir}/ed25519_master_id_secret_key`;
+  const rsaSecretKeyPath = `${torKeysDir}/secret_id_key`;
   
   let privateKey: Uint8Array;
   let publicKey: Uint8Array;
@@ -187,9 +281,29 @@ function setupKeynet(
     privateKey = keyPair.privateKey;
     publicKey = keyPair.publicKey;
     
-    // Write Tor format keys
+    // Write Tor format keys (both secret and public)
     writeTorPublicKey(publicKeyPath, publicKey);
     writeTorSecretKey(secretKeyPath, privateKey, publicKey);
+  }
+  
+  // Generate or load RSA keys with matching fingerprint
+  if (!forceRegenerate && existsSync(rsaSecretKeyPath)) {
+    console.error('[keynet] Loading existing RSA identity key...');
+    const rsaPrivateKeyPem = readTorRsaSecretKey(rsaSecretKeyPath);
+    // Derive public key from private key to calculate fingerprint
+    const rsaPublicKey = createPublicKey({
+      key: rsaPrivateKeyPem,
+      format: 'pem',
+      type: 'pkcs1'
+    });
+    const rsaPublicKeyPem = rsaPublicKey.export({ type: 'pkcs1', format: 'pem' }) as string;
+    const publicKeyDer = extractRsaPublicKeyDer(rsaPublicKeyPem);
+    const fingerprint = calculateRsaFingerprint(publicKeyDer);
+    console.error(`[keynet] RSA fingerprint: ${fingerprint.toString('hex').toUpperCase()}`);
+  } else {
+    console.error('[keynet] Generating RSA keypair with matching fingerprint...');
+    const rsaKeyPair = generateMatchingRsaKey(publicKey);
+    writeTorRsaSecretKey(rsaSecretKeyPath, rsaKeyPair.privateKey);
   }
   
   // Derive keynet address
@@ -236,4 +350,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
 }
 
-export { setupKeynet, generateKeyPair, deriveKeynetAddressBase32 };
+export { setupKeynet, generateKeyPair, deriveKeynetAddressBase32, generateMatchingRsaKey, calculateRsaFingerprint, extractRsaPublicKeyDer };

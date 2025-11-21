@@ -16,6 +16,7 @@ cat > "$TORRC" <<'EOF'
 RunAsDaemon 0
 DataDirectory /var/lib/tor
 ORPort 9001
+DirPort 9030
 Nickname KeynetTestRelay
 SocksPort 0
 ClientOnly 0
@@ -23,12 +24,16 @@ ExitRelay 1
 EOF
 
 # 2) Generate or load Ed25519 keys and derive keynet address
+#    Also generates RSA keys with fingerprint matching first byte of Ed25519 public key
+#    This allows clients to find the matching Tor node by filtering on fingerprint prefix
 mkdir -p "$DATA_DIR/keys"
-chown -R debian-tor:debian-tor "$DATA_DIR/keys"
 
 CERT_KEY="${CERT_DIR}/ed25519-key.pem"
-echo "[keynet] generating/loading Ed25519 keys..."
+echo "[keynet] generating/loading Ed25519 and matching RSA keys..."
 KEYNET_ADDR=$(npx tsx /app/src/keynet-setup.ts "$DATA_DIR/keys" "$CERT_KEY")
+
+# Ensure Tor can read the keys
+chown -R debian-tor:debian-tor "$DATA_DIR/keys"
 
 if [ -z "$KEYNET_ADDR" ]; then
   echo "[keynet] ERROR: failed to compute keynet address"
@@ -73,16 +78,12 @@ if [ "$REGEN_CERT" -eq 1 ]; then
     -subj "/CN=${KEYNET_ADDR}.keynet"
 fi
 
-# 7) Start simple HTTP server on 8080
-echo "[keynet] starting demo HTTP server on :8080..."
-python3 -m http.server 8080 --directory "$WWW_DIR" &
-HTTP_PID=$!
-
-# 8) Caddy config: HTTPS on 443 → proxy to http://localhost:8080
+# 7) Caddy config: HTTPS on 443 serving static files
 cat > "$CADDYFILE" <<EOF
 https://${KEYNET_ADDR}.keynet:443 {
     tls ${CERT_CRT} ${CERT_KEY}
-    reverse_proxy localhost:8080
+    root * ${WWW_DIR}
+    file_server
 }
 EOF
 
@@ -102,6 +103,6 @@ RENEWER_PID=$!
 /usr/bin/caddy run --config "$CADDYFILE" --adapter caddyfile &
 CADDY_PID=$!
 
-trap 'kill $TOR_PID $HTTP_PID $RENEWER_PID 2>/dev/null || true' EXIT
+trap 'kill $TOR_PID $RENEWER_PID 2>/dev/null || true' EXIT
 
 wait "$CADDY_PID"
