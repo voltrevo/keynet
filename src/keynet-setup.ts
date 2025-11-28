@@ -4,91 +4,22 @@
  * derive keynet address, and export PEM key for TLS.
  */
 
-import { ed25519 } from '@noble/curves/ed25519';
 import { sha3_256 } from '@noble/hashes/sha3';
-import { sha512 } from '@noble/hashes/sha512';
 import { createHash, generateKeyPairSync, createPublicKey } from 'crypto';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
+import {
+  generateKeyPair,
+  writeTorPublicKey,
+  writeTorSecretKey,
+  readTorSecretKey,
+  readTorPublicKey
+} from './util.js';
 
 interface KeynetSetupResult {
   keynetAddress: string;
   ed25519Fingerprint: string;
   publicKeyHex: string;
-}
-
-/**
- * Generate a new Ed25519 keypair
- */
-function generateKeyPair(): { privateKey: Uint8Array; publicKey: Uint8Array } {
-  const privateKey = ed25519.utils.randomPrivateKey();
-  const publicKey = ed25519.getPublicKey(privateKey);
-  return { privateKey, publicKey };
-}
-
-/**
- * Write Tor ed25519_master_id_public_key format:
- * 32 bytes: "== ed25519v1-public: type0 =="
- * 32 bytes: Ed25519 public key
- */
-function writeTorPublicKey(path: string, publicKey: Uint8Array): void {
-  const header = Buffer.from('== ed25519v1-public: type0 ==\x00\x00\x00');
-  const keyData = Buffer.concat([header, Buffer.from(publicKey)]);
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, keyData, { mode: 0o600 });
-}
-
-/**
- * Write Tor ed25519_master_id_secret_key format:
- * 32 bytes: "== ed25519v1-secret: type0 =="
- * 64 bytes: Ed25519 expanded secret key (seed + scalar)
- * 
- * The expanded scalar is derived from the seed using RFC 8032 key expansion.
- */
-function writeTorSecretKey(
-  path: string,
-  privateKey: Uint8Array,
-  publicKey: Uint8Array
-): void {
-  const header = Buffer.from('== ed25519v1-secret: type0 ==\x00\x00\x00');
-  
-  // RFC 8032 Ed25519 key expansion:
-  // 1. Hash the 32-byte seed with SHA-512 to get 64 bytes
-  const hash = sha512(privateKey);
-  
-  // 2. Take the first 32 bytes and apply bit manipulations to get the scalar
-  const scalar = new Uint8Array(hash.slice(0, 32));
-  scalar[0] &= 248;  // Clear lowest 3 bits
-  scalar[31] &= 127; // Clear highest bit
-  scalar[31] |= 64;  // Set second highest bit
-  
-  // 3. Write: header + seed + expanded scalar (96 bytes total)
-  const keyData = Buffer.concat([
-    header,
-    Buffer.from(privateKey),  // 32-byte seed
-    Buffer.from(scalar)        // 32-byte expanded scalar
-  ]);
-  
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, keyData, { mode: 0o600 });
-}
-
-/**
- * Read Tor secret key and extract private key
- */
-function readTorSecretKey(path: string): Uint8Array {
-  const data = readFileSync(path);
-  // Skip 32-byte header, read 32-byte private key
-  return new Uint8Array(data.slice(32, 64));
-}
-
-/**
- * Read Tor public key
- */
-function readTorPublicKey(path: string): Uint8Array {
-  const data = readFileSync(path);
-  // Skip 32-byte header, read 32-byte public key
-  return new Uint8Array(data.slice(32, 64));
 }
 
 /**
