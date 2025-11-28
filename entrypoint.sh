@@ -40,7 +40,7 @@ if [ -z "$KEYNET_ADDR" ]; then
   exit 1
 fi
 
-echo "[keynet] keynet address: https://${KEYNET_ADDR}.keynet/"
+echo "[keynet] keynet address: http://${KEYNET_ADDR}.keynet/"
 
 # 4) Add /etc/hosts entry mapping <addr>.keynet to this container's IP
 CONTAINER_IP=$(hostname -I | awk '{print $1}')
@@ -49,39 +49,16 @@ echo "[keynet] added /etc/hosts entry: ${CONTAINER_IP} ${KEYNET_ADDR}.keynet"
 
 # 5) Append exit policy now that we know our IP
 cat >> "$TORRC" <<EOF
-ExitPolicy accept ${CONTAINER_IP}:443
+ExitPolicy accept ${CONTAINER_IP}:80
 ExitPolicy reject *:*
 EOF
 
 echo "[keynet] torrc:"
 cat "$TORRC"
 
-# 6) Generate self-signed cert using the PEM key derived from Tor identity
-CERT_CRT="${CERT_DIR}/ed25519-cert.pem"
-
-# Check if cert exists and is valid for at least 30 days
-REGEN_CERT=0
-if [ ! -f "$CERT_CRT" ]; then
-  REGEN_CERT=1
-else
-  # Check if cert expires in less than 30 days
-  if ! openssl x509 -in "$CERT_CRT" -noout -checkend 2592000 2>/dev/null; then
-    REGEN_CERT=1
-    echo "[keynet] certificate expiring soon, regenerating..."
-  fi
-fi
-
-if [ "$REGEN_CERT" -eq 1 ]; then
-  echo "[keynet] generating self-signed cert using Tor Ed25519 identity..."
-  openssl req -new -x509 -key "$CERT_KEY" -out "$CERT_CRT" \
-    -days 365 \
-    -subj "/CN=${KEYNET_ADDR}.keynet"
-fi
-
-# 7) Caddy config: HTTPS on 443 serving static files
+# 6) Caddy config: HTTP on 80 serving static files
 cat > "$CADDYFILE" <<EOF
-https://${KEYNET_ADDR}.keynet:443 {
-    tls ${CERT_CRT} ${CERT_KEY}
+http://${KEYNET_ADDR}.keynet:80 {
     root * ${WWW_DIR}
     file_server
 }
@@ -90,19 +67,15 @@ EOF
 echo "[keynet] Caddyfile:"
 cat "$CADDYFILE"
 
-# 9) Start Tor with final exit policy
+# 7) Start Tor with final exit policy
 echo "[keynet] starting Tor with final config..."
 su -s /bin/bash -c "tor -f '$TORRC'" debian-tor &
 TOR_PID=$!
 
-# 10) Start certificate renewal daemon
-npx tsx /app/src/cert-renewer.ts "$CERT_KEY" "$CERT_CRT" "$KEYNET_ADDR" &
-RENEWER_PID=$!
-
-# 11) Start Caddy in foreground
+# 8) Start Caddy in foreground
 /usr/bin/caddy run --config "$CADDYFILE" --adapter caddyfile &
 CADDY_PID=$!
 
-trap 'kill $TOR_PID $RENEWER_PID 2>/dev/null || true' EXIT
+trap 'kill $TOR_PID 2>/dev/null || true' EXIT
 
 wait "$CADDY_PID"

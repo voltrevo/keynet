@@ -245,7 +245,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(result.keynetAddress);
     
     // Output additional info to stderr
-    console.error(`[keynet] Keynet address: https://${result.keynetAddress}.keynet/`);
+    console.error(`[keynet] Keynet address: http://${result.keynetAddress}.keynet/`);
     console.error(`[keynet] Ed25519 fingerprint: ${result.ed25519Fingerprint}`);
     console.error(`[keynet] Public key: ${result.publicKeyHex}`);
   } catch (error) {
