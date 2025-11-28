@@ -22,34 +22,7 @@ interface KeynetSetupResult {
   publicKeyHex: string;
 }
 
-/**
- * Derive keynet address using Onion v3 encoding
- */
-function deriveKeynetAddress(publicKey: Uint8Array): string {
-  const version = new Uint8Array([0x03]);
-  const checksumInput = Buffer.concat([
-    Buffer.from('.onion checksum'),
-    Buffer.from(publicKey),
-    Buffer.from(version),
-  ]);
-  const checksum = sha3_256(checksumInput).slice(0, 2);
-  const addressBytes = Buffer.concat([
-    Buffer.from(publicKey),
-    Buffer.from(checksum),
-    Buffer.from(version),
-  ]);
-  return Buffer.from(addressBytes).toString('base64')
-    .replace(/\+/g, '')
-    .replace(/\//g, '')
-    .replace(/=/g, '')
-    .toLowerCase()
-    .slice(0, 56);
-}
-
-/**
- * More correct base32 encoding for onion v3 addresses
- */
-function deriveKeynetAddressBase32(publicKey: Uint8Array): string {
+export function deriveKeynetAddress(publicKey: Uint8Array): string {
   const version = new Uint8Array([0x03]);
   const checksumInput = Buffer.concat([
     Buffer.from('.onion checksum'),
@@ -111,14 +84,14 @@ function writePemPrivateKey(path: string, privateKey: Uint8Array): void {
 /**
  * Calculate RSA fingerprint (SHA-1 of the public key in DER format)
  */
-function calculateRsaFingerprint(publicKeyDer: Buffer): Buffer {
+export function calculateRsaFingerprint(publicKeyDer: Buffer): Buffer {
   return createHash('sha1').update(publicKeyDer).digest();
 }
 
 /**
  * Extract DER-encoded RSA public key from PEM
  */
-function extractRsaPublicKeyDer(publicKeyPem: string): Buffer {
+export function extractRsaPublicKeyDer(publicKeyPem: string): Buffer {
   const base64 = publicKeyPem
     .replace(/-----BEGIN RSA PUBLIC KEY-----/, '')
     .replace(/-----END RSA PUBLIC KEY-----/, '')
@@ -129,7 +102,7 @@ function extractRsaPublicKeyDer(publicKeyPem: string): Buffer {
 /**
  * Generate RSA keypair with fingerprint matching first byte of target
  */
-function generateMatchingRsaKey(targetBytes: Uint8Array): { privateKey: string; publicKey: string; fingerprint: Buffer; attempts: number } {
+export function generateMatchingRsaKey(targetBytes: Uint8Array): { privateKey: string; publicKey: string; fingerprint: Buffer; attempts: number } {
   const targetPrefix = Buffer.from(targetBytes.slice(0, 1));
   console.error(`[keynet] Searching for RSA key with fingerprint starting with: ${targetPrefix.toString('hex')}`);
   
@@ -189,7 +162,7 @@ function readTorRsaSecretKey(path: string): string {
 /**
  * Main setup function
  */
-function setupKeynet(
+export function setupKeynet(
   torKeysDir: string,
   pemKeyPath: string,
   forceRegenerate = false
@@ -238,7 +211,7 @@ function setupKeynet(
   }
   
   // Derive keynet address
-  const keynetAddress = deriveKeynetAddressBase32(publicKey);
+  const keynetAddress = deriveKeynetAddress(publicKey);
   
   // Write PEM key for TLS
   writePemPrivateKey(pemKeyPath, privateKey);
@@ -280,5 +253,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(1);
   }
 }
-
-export { setupKeynet, generateKeyPair, deriveKeynetAddressBase32, generateMatchingRsaKey, calculateRsaFingerprint, extractRsaPublicKeyDer };
