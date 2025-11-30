@@ -24,6 +24,6 @@ RUN npm install
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-EXPOSE 443 9001 9030
+EXPOSE 9001 9030
 
 ENTRYPOINT ["/entrypoint.sh"]

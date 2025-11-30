@@ -24,7 +24,7 @@ From this directory:
 
 ```bash
 docker build -t keynet .
-docker run -d -p 9001:9001 \
+docker run -d -p 9001:9001 -p 9030:9030 \
   -v ~/keynet-data/tor-keys/keys:/var/lib/tor/keys \
   keynet
 ```
