@@ -15,6 +15,7 @@ import {
   readTorPublicKey,
   checkTorKeyPair
 } from './src/util.js';
+import { deriveKeynetAddress } from './src/keynet-setup.js';
 
 // CLI interface
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -55,6 +56,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
     console.error(`[test-checkTorKeyPair] Private key (hex): ${Buffer.from(privateKey).toString('hex')}`);
     console.error(`[test-checkTorKeyPair] Public key (hex):  ${Buffer.from(publicKey).toString('hex')}`);
+    console.error('');
+
+    // Derive keynet address
+    const keynetAddress = deriveKeynetAddress(publicKey);
+    console.error(`[test-checkTorKeyPair] Keynet address: ${keynetAddress}`);
     console.error('');
 
     // Check if they're a valid pair
