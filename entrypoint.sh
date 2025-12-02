@@ -6,32 +6,13 @@ CERT_DIR="/etc/keynet"
 WWW_DIR="/srv/www"
 CADDYFILE="/etc/caddy/Caddyfile"
 
-mkdir -p "$DATA_DIR" "$CERT_DIR" /etc/caddy
-# Ensure proper ownership for Tor data directory
-chown -R debian-tor:debian-tor "$DATA_DIR"
-
-# 1) Base torrc (we'll append ExitPolicy after we know our IP)
+# 1) Copy base torrc template and append dynamic exit policy
 TORRC="/etc/tor/torrc"
-cat > "$TORRC" <<'EOF'
-RunAsDaemon 0
-DataDirectory /var/lib/tor
-Log notice stderr
-ORPort 9001
-DirPort 9030
-Nickname KeynetTestRelay
-SocksPort 0
-ClientOnly 0
-ExitRelay 1
-ServerDNSDetectHijacking 0
-ServerDNSAllowBrokenConfig 1
-ExitPolicyRejectPrivate 0
-EOF
+cp /etc/tor/torrc.template "$TORRC"
 
 # 2) Generate or load Ed25519 keys and derive keynet address
 #    Also generates RSA keys with fingerprint matching first byte of Ed25519 public key
 #    This allows clients to find the matching Tor node by filtering on fingerprint prefix
-mkdir -p "$DATA_DIR/keys"
-
 CERT_KEY="${CERT_DIR}/ed25519-key.pem"
 echo "[keynet] generating/loading Ed25519 and matching RSA keys..."
 KEYNET_ADDR=$(npx tsx /app/src/keynet-setup.ts "$DATA_DIR/keys" "$CERT_KEY")
@@ -53,29 +34,8 @@ echo "${CONTAINER_IP} asdf.com" >> /etc/hosts
 echo "[keynet] added /etc/hosts entry: ${CONTAINER_IP} ${KEYNET_ADDR}.keynet"
 echo "[keynet] added /etc/hosts entry: ${CONTAINER_IP} asdf.com"
 
-# 5) Setup dnsmasq to respect /etc/hosts for Tor DNS resolution
-echo "[keynet] configuring dnsmasq..."
-cat > /etc/dnsmasq.conf <<'DNSMASQ_EOF'
-# Don't read /etc/resolv.conf for upstream servers
-no-resolv
-
-# Read /etc/hosts for local mappings
-addn-hosts=/etc/hosts
-
-# Listen only on localhost
-listen-address=127.0.0.1
-bind-interfaces
-
-# Upstream DNS servers
-server=8.8.8.8
-server=8.8.4.4
-
-# Don't use /etc/dnsmasq.d
-conf-dir=/etc/dnsmasq.d/,*.conf
-DNSMASQ_EOF
-
-# Backup original resolv.conf and point to dnsmasq
-cp /etc/resolv.conf /etc/resolv.conf.backup
+# 5) Setup DNS to use dnsmasq (config already in image at /etc/dnsmasq.conf)
+echo "[keynet] setting up DNS resolver..."
 echo "nameserver 127.0.0.1" > /etc/resolv.conf
 
 # Start dnsmasq

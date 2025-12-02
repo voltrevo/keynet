@@ -23,7 +23,10 @@ and does not require attestation by certificate authorities.
 From this directory:
 
 ```bash
-docker build -t keynet .
+# Build the image with a unique relay nickname (required)
+docker build --build-arg TOR_NICKNAME=MyRelayName -t keynet .
+
+# Run the container
 docker run -d -p 9001:9001 -p 9030:9030 \
   -v ~/keynet-data/tor-keys/keys:/var/lib/tor/keys \
   keynet
