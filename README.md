@@ -18,7 +18,27 @@ TLS would be redundant. This avoids any need for key signing because the keynet 
 the Tor node's public key, so the ownership of that key is naturally secured by the cryptography
 and does not require attestation by certificate authorities.
 
-## Building and Running
+## Quick Install
+
+The easiest way to install Keynet on a remote server (will prompt for nickname):
+
+```bash
+ssh myserver 'curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | bash'
+```
+
+Or specify the nickname directly in the command:
+
+```bash
+ssh myserver 'TOR_NICKNAME=MyRelayName curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | bash'
+```
+
+This script will:
+- Install Docker if not already installed
+- Clone the Keynet repository
+- Build the Docker image with your chosen nickname
+- Start the container with persistent key storage
+
+## Building and Running Manually
 
 From this directory:
 
@@ -28,7 +48,7 @@ docker build --build-arg TOR_NICKNAME=MyRelayName -t keynet .
 
 # Run the container
 docker run -d -p 9001:9001 -p 9030:9030 \
-  -v ~/keynet-data/tor-keys/keys:/var/lib/tor/keys \
+  -v ~/keynet-data/keys:/var/lib/tor/keys \
   keynet
 ```
 
