@@ -9,12 +9,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create dirs and set proper ownership for Tor
-RUN mkdir -p /var/lib/tor /var/lib/tor/keys /etc/keynet /etc/caddy /srv/www /srv/asdf.com && \
+RUN mkdir -p /var/lib/tor /var/lib/tor/keys /etc/keynet /etc/caddy /srv/www && \
     chown -R debian-tor:debian-tor /var/lib/tor
 
 # Simple demo content
-RUN bash -lc 'echo "<h1>Keynet test service</h1><p>Hello from inside Docker.</p>" > /srv/www/index.html' && \
-    bash -lc 'echo "<h1>Keynet test service</h1><p>Fake asdf.com.</p>" > /srv/asdf.com/index.html'
+RUN bash -lc 'echo "<h1>Keynet test service</h1><p>Hello from inside Docker.</p>" > /srv/www/index.html'
 
 # Copy dnsmasq configuration
 COPY dnsmasq.conf /etc/dnsmasq.conf

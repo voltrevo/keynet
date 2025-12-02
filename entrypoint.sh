@@ -30,9 +30,7 @@ echo "[keynet] keynet address: http://${KEYNET_ADDR}.keynet/"
 # 4) Add /etc/hosts entry mapping <addr>.keynet to this container's IP
 CONTAINER_IP=$(hostname -I | awk '{print $1}')
 echo "${CONTAINER_IP} ${KEYNET_ADDR}.keynet" >> /etc/hosts
-echo "${CONTAINER_IP} asdf.com" >> /etc/hosts
 echo "[keynet] added /etc/hosts entry: ${CONTAINER_IP} ${KEYNET_ADDR}.keynet"
-echo "[keynet] added /etc/hosts entry: ${CONTAINER_IP} asdf.com"
 
 # 5) Setup DNS to use dnsmasq (config already in image at /etc/dnsmasq.conf)
 echo "[keynet] setting up DNS resolver..."
@@ -57,11 +55,6 @@ cat "$TORRC"
 cat > "$CADDYFILE" <<EOF
 http://${KEYNET_ADDR}.keynet:80 {
     root * ${WWW_DIR}
-    file_server
-}
-
-http://asdf.com:80 {
-    root * /srv/asdf.com
     file_server
 }
 EOF
