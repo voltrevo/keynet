@@ -7,7 +7,7 @@ echo ""
 # Check if TOR_NICKNAME is provided
 if [ -z "${TOR_NICKNAME:-}" ]; then
   echo "Enter a nickname for your Tor relay:"
-  read -r TOR_NICKNAME
+  read -r TOR_NICKNAME < /dev/tty
   
   if [ -z "$TOR_NICKNAME" ]; then
     echo "Error: Tor nickname is required"

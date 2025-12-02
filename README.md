@@ -20,16 +20,16 @@ and does not require attestation by certificate authorities.
 
 ## Quick Install
 
-The easiest way to install Keynet on a remote server (will prompt for nickname):
+This will prompt for your relay's nickname (used in tor consensus):
 
 ```bash
-ssh myserver 'curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | bash'
+curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | bash'
 ```
 
-Or specify the nickname directly in the command:
+You can also specify it in the command like this:
 
 ```bash
-ssh myserver 'TOR_NICKNAME=MyRelayName curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | bash'
+curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | TOR_NICKNAME=MyRelayName bash
 ```
 
 This script will:
