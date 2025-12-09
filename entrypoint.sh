@@ -71,6 +71,29 @@ TOR_PID=$!
 /usr/bin/caddy run --config "$CADDYFILE" --adapter caddyfile &
 CADDY_PID=$!
 
-trap 'kill $TOR_PID $DNSMASQ_PID 2>/dev/null || true' EXIT
+# Setup cleanup on exit
+trap 'echo "[keynet] Cleaning up processes..."; kill $TOR_PID $CADDY_PID $DNSMASQ_PID 2>/dev/null || true; exit' EXIT
 
-wait "$CADDY_PID"
+# Monitor all background processes and exit if any of them die
+echo "[keynet] All services started. Monitoring processes..."
+while true; do
+  # Check if Tor process is still alive
+  if ! kill -0 $TOR_PID 2>/dev/null; then
+    echo "[keynet] ERROR: Tor process died (PID $TOR_PID)"
+    exit 1
+  fi
+  
+  # Check if Caddy process is still alive
+  if ! kill -0 $CADDY_PID 2>/dev/null; then
+    echo "[keynet] ERROR: Caddy process died (PID $CADDY_PID)"
+    exit 1
+  fi
+  
+  # Check if dnsmasq process is still alive
+  if ! kill -0 $DNSMASQ_PID 2>/dev/null; then
+    echo "[keynet] ERROR: dnsmasq process died (PID $DNSMASQ_PID)"
+    exit 1
+  fi
+  
+  sleep 5
+done
