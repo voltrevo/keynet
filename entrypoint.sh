@@ -51,32 +51,45 @@ EOF
 echo "[keynet] torrc:"
 cat "$TORRC"
 
-# 7) Caddy config: HTTP on 80 serving static files
+# 7) Start Meta RPC Server on port 3000
+echo "[keynet] starting Meta RPC Server..."
+cd /app
+npx tsx /app/src/meta-rpc-server.ts &
+RPC_SERVER_PID=$!
+sleep 2
+echo "[keynet] Meta RPC Server started (PID $RPC_SERVER_PID)"
+
+# 8) Caddy config: HTTP on 80 proxying to Meta RPC Server on 3000
 cat > "$CADDYFILE" <<EOF
 http://${KEYNET_ADDR}.keynet:80 {
-    root * ${WWW_DIR}
-    file_server
+    reverse_proxy localhost:3000
 }
 EOF
 
 echo "[keynet] Caddyfile:"
 cat "$CADDYFILE"
 
-# 8) Start Tor with final exit policy
+# 9) Start Tor with final exit policy
 echo "[keynet] starting Tor with final config..."
 su -s /bin/bash -c "tor -f '$TORRC'" debian-tor &
 TOR_PID=$!
 
-# 9) Start Caddy in foreground
+# 10) Start Caddy in foreground
 /usr/bin/caddy run --config "$CADDYFILE" --adapter caddyfile &
 CADDY_PID=$!
 
 # Setup cleanup on exit
-trap 'echo "[keynet] Cleaning up processes..."; kill $TOR_PID $CADDY_PID $DNSMASQ_PID 2>/dev/null || true; exit' EXIT
+trap 'echo "[keynet] Cleaning up processes..."; kill $RPC_SERVER_PID $TOR_PID $CADDY_PID $DNSMASQ_PID 2>/dev/null || true; exit' EXIT
 
 # Monitor all background processes and exit if any of them die
 echo "[keynet] All services started. Monitoring processes..."
 while true; do
+  # Check if Meta RPC Server is still alive
+  if ! kill -0 $RPC_SERVER_PID 2>/dev/null; then
+    echo "[keynet] ERROR: Meta RPC Server process died (PID $RPC_SERVER_PID)"
+    exit 1
+  fi
+  
   # Check if Tor process is still alive
   if ! kill -0 $TOR_PID 2>/dev/null; then
     echo "[keynet] ERROR: Tor process died (PID $TOR_PID)"
