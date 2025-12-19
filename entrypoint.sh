@@ -68,7 +68,9 @@ DNSMASQ_PID=$!
 sleep 1
 
 # 7) Append exit policy now that we know our IP
+# Allow both the container's local IP and 127.0.0.1 (for localhost reverse proxies)
 cat >> "$TORRC" <<EOF
+ExitPolicy accept 127.0.0.1:80
 ExitPolicy accept ${CONTAINER_IP}:80
 ExitPolicy reject *:*
 EOF
