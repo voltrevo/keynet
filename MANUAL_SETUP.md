@@ -82,12 +82,26 @@ Tor needs to resolve your Keynet domain when processing DNS queries and validati
 
 **Important:** `/etc/hosts` alone is not sufficient—Tor makes DNS queries to the resolver specified in `/etc/resolv.conf`, not by reading `/etc/hosts` directly.
 
-Configure your DNS resolver to return the correct mapping. One way to do this is with dnsmasq:
+### Disable systemd-resolved (Ubuntu 20.04+)
 
-**Install and configure dnsmasq:**
+⚠️ **CRITICAL for Ubuntu 20.04+:** On modern Ubuntu systems, `systemd-resolved` manages DNS and will overwrite `/etc/resolv.conf`. You must disable it for Keynet to work:
 
 ```bash
-apt install dnsmasq
+sudo systemctl stop systemd-resolved
+sudo systemctl disable systemd-resolved
+echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf
+```
+
+This ensures `/etc/resolv.conf` points to dnsmasq and won't be overwritten.
+
+### Configure dnsmasq
+
+Configure your DNS resolver to return the correct mapping using dnsmasq:
+
+**Install dnsmasq:**
+
+```bash
+sudo apt-get install -y dnsmasq
 ```
 
 Create `/etc/dnsmasq.conf`:
@@ -99,16 +113,11 @@ server=8.8.8.8
 server=8.8.4.4
 ```
 
-Point system resolver to dnsmasq:
-```bash
-echo "nameserver 127.0.0.1" > /etc/resolv.conf
-```
-
 Start dnsmasq:
 ```bash
+sudo systemctl start dnsmasq
+# or for testing:
 dnsmasq --keep-in-foreground &
-# or
-systemctl start dnsmasq
 ```
 
 Then add to `/etc/hosts`:
@@ -118,7 +127,13 @@ Then add to `/etc/hosts`:
 
 Tor will now query dnsmasq on 127.0.0.1, which will read from `/etc/hosts` and return the correct mapping.
 
-**Alternative:** Configure your DNS resolver directly (without dnsmasq) to return the correct IP for your Keynet domain.
+**Verify DNS is working:**
+```bash
+curl http://abcdefghijklmnopqrstuvwxyz.keynet/
+# Should return your service response, not "name resolution failed"
+```
+
+**Alternative:** If you're not on Ubuntu or have a different DNS setup, configure your resolver directly to return the correct IP for your Keynet domain.
 
 ## Verification
 
