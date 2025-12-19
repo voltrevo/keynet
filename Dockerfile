@@ -15,17 +15,19 @@ RUN mkdir -p /var/lib/tor /var/lib/tor/keys /etc/keynet /etc/caddy && \
 # Copy dnsmasq configuration
 COPY dnsmasq.conf /etc/dnsmasq.conf
 
+# Build arguments (required)
+ARG TOR_NICKNAME
+
 # Keynet TypeScript project (includes Meta RPC Server)
 COPY package.json tsconfig.json /app/
 COPY src /app/src
 WORKDIR /app
 RUN npm install
 
-# Build arguments (required)
-ARG TOR_NICKNAME
-
 # Create base torrc with static configuration
-RUN echo "RunAsDaemon 0" > /etc/tor/torrc.template && \
+# Use shell form to ensure proper variable expansion
+RUN if [ -z "${TOR_NICKNAME}" ]; then echo "ERROR: TOR_NICKNAME not provided"; exit 1; fi && \
+    echo "RunAsDaemon 0" > /etc/tor/torrc.template && \
     echo "DataDirectory /var/lib/tor" >> /etc/tor/torrc.template && \
     echo "Log notice stderr" >> /etc/tor/torrc.template && \
     echo "ORPort 9001" >> /etc/tor/torrc.template && \
