@@ -15,7 +15,7 @@ import {
   writeTorPublicKey,
   writeTorSecretKey,
   checkTorKeyPair
-} from './src/util.js';
+} from '../src/util.js';
 
 // CLI interface
 if (import.meta.url === `file://${process.argv[1]}`) {

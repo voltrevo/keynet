@@ -14,8 +14,8 @@ import {
   readTorSecretKey,
   readTorPublicKey,
   checkTorKeyPair
-} from './src/util.js';
-import { deriveKeynetAddress } from './src/keynet-setup.js';
+} from '../src/util.js';
+import { deriveKeynetAddress } from '../src/keynet-setup.js';
 
 // CLI interface
 if (import.meta.url === `file://${process.argv[1]}`) {
