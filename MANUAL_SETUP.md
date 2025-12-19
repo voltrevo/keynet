@@ -1,9 +1,9 @@
 # Manual Keynet Setup (No Docker)
 
 Keynet is straightforward to set up manually. You need:
-1. A Tor relay configured as an exit node
-2. An HTTP service (existing elsewhere, or only reachable by keynet by running locally)
-3. Custom Ed25519 + RSA keypair generation (the only code needed)
+1. A set of Ed25519 + RSA keys such that the RSA fingerprint and Ed25519 pubkey have the same first byte
+2. A Tor relay configured with those keys, and some special config
+3. A HTTP service to target
 
 ## Key Generation
 

@@ -15,9 +15,10 @@ Keynet services do not use TLS because similar protection is provided via the To
 ## Manual Setup (No Docker)
 
 Keynet is straightforward to set up manually. You only need:
-1. A Tor relay running on your server
-2. An HTTP reverse proxy (Caddy, nginx, etc.)
-3. Generated Ed25519 + RSA keypairs with matching fingerprints
+1. A set of Ed25519 + RSA keys such that the RSA fingerprint and Ed25519 pubkey have the same first byte
+  - (Code is provided for this)
+2. A Tor relay configured with those keys, and some special config
+3. A HTTP service to target
 
 See [MANUAL_SETUP.md](MANUAL_SETUP.md) for full instructions.
 
