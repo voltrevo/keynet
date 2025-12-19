@@ -38,6 +38,10 @@ If you need the Ed25519 private key in PEM format (for external use like TLS cer
 npx tsx src/export-ed25519-pem.ts /path/to/tor/keys /path/to/ed25519-key.pem
 ```
 
+Note: keys must be placed in a `keys` subdirectory within the data directory. The above path is correct if `DataDirectory` is `/path/to/tor`.
+
+Tor will autogenerate keys if it doesn't recognize what you provide. It's worth confirming in the logs.
+
 ## Tor Configuration
 
 Create `/etc/tor/torrc`:
@@ -65,17 +69,12 @@ ExitPolicy accept 127.0.0.1:80 # or the IP you need (tor doesn't allow hostname 
 ExitPolicy reject *:*
 ```
 
-**Important:** The `DataDirectory` in torrc must point to the same directory you passed to `keynet-setup.ts`. For example, if you ran:
-```bash
-npx tsx src/keynet-setup.ts /var/lib/tor
-```
-
-Then your torrc must have:
+**Important:** The `DataDirectory` in torrc must point to the parent directory of your keys. For example, if your keys are in `/var/lib/tor/keys/`, then your torrc must have:
 ```
 DataDirectory /var/lib/tor
 ```
 
-Tor reads the generated keys (`ed25519_master_id_secret_key` and `ed25519_master_id_public_key`) from the `DataDirectory`.
+Tor will automatically look for keys in the `keys/` subdirectory within DataDirectory. If it doesn't find your keys, it will silently generate its own.
 
 ## DNS Resolution
 
@@ -124,6 +123,11 @@ Tor will now query dnsmasq on 127.0.0.1, which will read from `/etc/hosts` and r
 ## Verification
 
 **NOTE**: It takes a while (hours unfortunately) for new Tor nodes to become visible in the network, and your keynet service won't work until this happens. You can check visibility by searching your node's nickname or IP at https://onionoo.torproject.org/summary.
+
+- In the meantime, check:
+  - Tor is using the keys you provided (see Tor logs)
+  - `curl http://[encoded-key].keynet/` on the server successfully shows your content
+  - `dig @127.0.0.1 [encoded-key].keynet` resolves to the IP where your server is running (possibly 127.0.0.1)
 
 To verify your Keynet relay is working correctly, you need to make an HTTP request through Tor to your Keynet address. You can do this using:
 
