@@ -125,12 +125,14 @@ Set this environment variable to specify what HTTP service to proxy:
 # Proxy a local service
 -e PROXY_TARGET=http://localhost:8000
 
-# Proxy a remote service
+# Proxy a remote service on your network
 -e PROXY_TARGET=http://192.168.1.5:3000
 
 # Demo mode: use the included Meta RPC Server
 -e PROXY_TARGET=demo
 ```
+
+**Note:** Keynet always exits to `127.0.0.1:80` locally via its reverse proxy, regardless of where the PROXY_TARGET is located.
 
 **The container will:**
 - Validate that `PROXY_TARGET` is configured (fail with helpful message if missing)
@@ -211,3 +213,22 @@ The container runs:
 - **dnsmasq** — DNS resolution for `.keynet` domain
 - **Caddy** — HTTP reverse proxy
 - **PROXY_TARGET service** (optional) — Your service or Meta RPC Server
+
+## Verification
+
+To verify your Keynet relay is working correctly, you need to make an HTTP request through Tor to your Keynet address. You can do this using:
+
+**Option 1: Tor JS (Web-based)**
+
+Visit https://voltrevo.github.io/tor-js/ and use the web interface to make requests to `http://[keynet-addr].keynet/`
+
+**Option 2: curlTor CLI**
+
+Install the tor-js npm package and use the curlTor CLI:
+
+```bash
+npm install -g tor-js
+curlTor http://[keynet-addr].keynet/
+```
+
+Both tools will route your request through Tor, specify your relay as the exit node, and display the response from your Keynet service.

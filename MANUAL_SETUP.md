@@ -2,15 +2,8 @@
 
 Keynet is straightforward to set up manually. You need:
 1. A Tor relay configured as an exit node
-2. An HTTP reverse proxy (Caddy, nginx, etc.)
+2. An HTTP service (existing elsewhere, or only reachable by keynet by running locally)
 3. Custom Ed25519 + RSA keypair generation (the only code needed)
-
-## Prerequisites
-
-- Linux/Unix system with Tor and a reverse proxy
-- Node.js 18+ (for key generation)
-- Ports 9001 (Tor ORPort) and 9030 (Tor DirPort) open to the internet
-- Port 80 open locally for your reverse proxy
 
 ## Key Generation
 
@@ -35,7 +28,7 @@ Output example:
 [keynet] RSA fingerprint: 4E73DEEA6AB67C2E01A1D3A81E6F4D9F7F92900F
 ```
 
-The script generates RSA keys repeatedly until the first byte matches (typically ~10 seconds, ~256 attempts). Keys are reused across restarts.
+The script generates RSA keys repeatedly until the first byte matches (typically ~10 seconds, ~256 attempts).
 
 ## Tor Configuration
 
@@ -53,117 +46,76 @@ ExitRelay 1
 SocksPort 0
 ClientOnly 0
 
-# CRITICAL: These allow DNS hijacking and private IPs for local proxy
+# CRITICAL: These settings allow Tor to exit to private/local addresses
+# By default, Tor blocks exiting to RFC1918 private addresses and localhost
 ServerDNSDetectHijacking 0
 ServerDNSAllowBrokenConfig 1
 ExitPolicyRejectPrivate 0
 
-# Determine YOUR_IP: hostname -I | awk '{print $1}'
-ExitPolicy accept YOUR_IP:80
+# Exit policy: must match where your HTTP service is reachable
+ExitPolicy accept 127.0.0.1:80
 ExitPolicy reject *:*
-```
-
-**Why those settings matter:**
-- `ServerDNSDetectHijacking 0` — Allows local DNS for the Keynet domain
-- `ServerDNSAllowBrokenConfig 1` — Allows DNS config referencing 127.0.0.1
-- `ExitPolicyRejectPrivate 0` — Allows private IPs in exit policy
-
-Without these, Tor will reject the configuration. Start Tor:
-
-```bash
-tor -f /etc/tor/torrc
 ```
 
 ## DNS Resolution
 
-Add to `/etc/hosts`:
+Tor needs to resolve your Keynet domain when processing DNS queries and validating exit policies. The resolver configured in `/etc/resolv.conf` must return the correct IP for your Keynet domain.
 
+**Important:** `/etc/hosts` alone is not sufficient—Tor makes DNS queries to the resolver specified in `/etc/resolv.conf`, not by reading `/etc/hosts` directly.
+
+Configure your DNS resolver to return the correct mapping. One way to do this is with dnsmasq:
+
+**Install and configure dnsmasq:**
+
+```bash
+apt install dnsmasq
+```
+
+Create `/etc/dnsmasq.conf`:
+```
+addn-hosts=/etc/hosts
+listen-address=127.0.0.1
+bind-interfaces
+server=8.8.8.8
+server=8.8.4.4
+```
+
+Point system resolver to dnsmasq:
+```bash
+echo "nameserver 127.0.0.1" > /etc/resolv.conf
+```
+
+Start dnsmasq:
+```bash
+dnsmasq --keep-in-foreground &
+# or
+systemctl start dnsmasq
+```
+
+Then add to `/etc/hosts`:
 ```
 127.0.0.1 abcdefghijklmnopqrstuvwxyz.keynet
 ```
 
-For more complex setups, use dnsmasq (see troubleshooting).
+Tor will now query dnsmasq on 127.0.0.1, which will read from `/etc/hosts` and return the correct mapping.
 
-## Reverse Proxy Configuration
-
-### Caddy
-
-Create `Caddyfile`:
-
-```caddy
-http://abcdefghijklmnopqrstuvwxyz.keynet:80 {
-    reverse_proxy localhost:8000
-}
-```
-
-Start:
-```bash
-caddy run --config Caddyfile
-```
-
-### Nginx
-
-Create `/etc/nginx/sites-available/keynet`:
-
-```nginx
-server {
-    listen 80;
-    server_name abcdefghijklmnopqrstuvwxyz.keynet;
-    location / {
-        proxy_pass http://localhost:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-Enable and start:
-```bash
-ln -s /etc/nginx/sites-available/keynet /etc/nginx/sites-enabled/
-nginx -s reload
-```
-
-## Running Your Service
-
-Your reverse proxy points to `localhost:8000`. Run your service there:
-
-```bash
-python3 -m http.server 8000
-# or
-node app.js --port 8000
-```
+**Alternative:** Configure your DNS resolver directly (without dnsmasq) to return the correct IP for your Keynet domain.
 
 ## Verification
 
-Test from your relay:
+To verify your Keynet relay is working correctly, you need to make an HTTP request through Tor to your Keynet address. You can do this using:
+
+**Option 1: Tor JS (Web-based)**
+
+Visit https://voltrevo.github.io/tor-js/ and use the web interface to make requests to `http://[encoded-key].keynet/`
+
+**Option 2: curlTor CLI**
+
+Install the tor-js npm package and use the curlTor CLI:
 
 ```bash
-curl http://abcdefghijklmnopqrstuvwxyz.keynet/
+npm install -g tor-js
+curlTor http://[encoded-key].keynet/
 ```
 
-Should return content from your service.
-
-## Troubleshooting
-
-**Tor won't start: "ExitPolicy rejects private IPs"**
-- Add the three critical settings above (`ServerDNSDetectHijacking`, `ServerDNSAllowBrokenConfig`, `ExitPolicyRejectPrivate`)
-
-**Tor won't start: "Address already in use" (9001/9030)**
-```bash
-lsof -i :9001 -i :9030  # Kill the old process
-```
-
-**Domain doesn't resolve**
-- Verify `/etc/hosts` entry: `cat /etc/hosts | grep keynet`
-- Test: `nslookup abcdefghijklmnopqrstuvwxyz.keynet 127.0.0.1`
-- If using dnsmasq, verify it's running and `/etc/resolv.conf` has `nameserver 127.0.0.1`
-
-**Reverse proxy can't connect to backend**
-```bash
-curl http://localhost:8000/  # Verify service is running
-```
-
-**Tor clients can't connect**
-- Relay needs to bootstrap (~5 min) and enter Tor consensus
-- Check logs: `tail -f /var/log/tor/notices.log | grep Bootstrap`
-- Ensure ports 9001/9030 are reachable from the internet (no firewall blocking)
+Both tools will route your request through Tor, specify your relay as the exit node, and display the response from your Keynet service.

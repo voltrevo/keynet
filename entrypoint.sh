@@ -52,11 +52,9 @@ fi
 
 echo "[keynet] keynet address: http://${KEYNET_ADDR}.keynet/"
 
-# 5) Add /etc/hosts entry mapping <addr>.keynet to both localhost and container IP
-CONTAINER_IP=$(hostname -I | awk '{print $1}')
+# 5) Add /etc/hosts entry mapping <addr>.keynet to localhost (127.0.0.1)
 echo "127.0.0.1 ${KEYNET_ADDR}.keynet" >> /etc/hosts
-echo "${CONTAINER_IP} ${KEYNET_ADDR}.keynet" >> /etc/hosts
-echo "[keynet] added /etc/hosts entries for ${KEYNET_ADDR}.keynet"
+echo "[keynet] added /etc/hosts entry for ${KEYNET_ADDR}.keynet"
 
 # 6) Setup DNS to use dnsmasq (config already in image at /etc/dnsmasq.conf)
 echo "[keynet] setting up DNS resolver..."
@@ -68,11 +66,9 @@ dnsmasq --keep-in-foreground &
 DNSMASQ_PID=$!
 sleep 1
 
-# 7) Append exit policy now that we know our IP
-# Allow both the container's local IP and 127.0.0.1 (for localhost reverse proxies)
+# 7) Append exit policy to allow localhost reverse proxies
 cat >> "$TORRC" <<EOF
 ExitPolicy accept 127.0.0.1:80
-ExitPolicy accept ${CONTAINER_IP}:80
 ExitPolicy reject *:*
 EOF
 
