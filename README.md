@@ -62,6 +62,51 @@ On startup you'll see output similar to:
 
 Inside the container, that hostname resolves via `/etc/hosts` to the container's IP, and Caddy serves your Ed25519-backed HTTP endpoint at that URL.
 
+## Meta RPC Server
+
+Keynet includes a built-in **Meta RPC Server** that provides random load-balanced JSON-RPC access to multiple blockchain networks. This allows you to run a public RPC endpoint with no TLS or certificate management required.
+
+### Supported Networks
+
+The Meta RPC Server provides endpoints for:
+- **Ethereum** (Chain ID: 1) — 5 public endpoints
+- **Arbitrum** (Chain ID: 42161) — 5 public endpoints
+- **Optimism** (Chain ID: 10) — 5 public endpoints
+- **Base** (Chain ID: 8453) — 5 public endpoints
+- **Polygon** (Chain ID: 137) — 5 public endpoints
+
+### Usage Examples
+
+Route requests by network name, chain ID, or alias:
+
+```bash
+# By network name
+curl -X POST http://[keynet-addr].keynet/ethereum \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 1}'
+
+# By chain ID
+curl -X POST http://[keynet-addr].keynet/1 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 1}'
+
+# By alias (eth, arb, op, poly, matic)
+curl -X POST http://[keynet-addr].keynet/eth \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 1}'
+```
+
+### API Endpoints
+
+- `GET /` — HTML help page with full documentation
+- `GET /info` — JSON metadata about supported networks and endpoints
+- `GET /health` — Health check endpoint (returns `{"status": "ok", "uptime": "..."}`); useful for container health probes
+- `POST /<network>` — JSON-RPC proxy to the selected network
+
+Request bodies must be valid JSON-RPC 2.0 format. The server randomly selects from the available endpoints for each network to distribute load.
+
+**Request size limit**: Maximum 1MB per request to prevent abuse.
+
 ## RSA Fingerprint Matching
 
 The setup automatically generates an RSA keypair whose SHA-1 fingerprint matches the first byte of the Ed25519 public key. This enables efficient discovery of the relay hosting the keynet service.
