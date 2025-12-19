@@ -91,6 +91,8 @@ This script will:
 - Build the Docker image with your chosen nickname
 - Start the container with persistent key storage and your configured proxy target
 
+**NOTE**: It takes a while (hours unfortunately) for new Tor nodes to become visible in the network, and your keynet service won't work until this happens. You can check visibility by searching your node's nickname or IP at https://onionoo.torproject.org/summary. Once it appears there, you can try [testing it](#verification).
+
 ### Manual Build and Run
 
 ```bash
@@ -114,7 +116,7 @@ On startup you'll see output similar to:
 [keynet] ✓ Successfully connected to PROXY_TARGET
 ```
 
-Your service is now accessible at `http://[keynet-addr].keynet/` via Tor.
+**NOTE**: It takes a while (hours unfortunately) for new Tor nodes to become visible in the network, and your keynet service won't work until this happens. You can check visibility by searching your node's nickname or IP at https://onionoo.torproject.org/summary. Once it appears there, you can try [testing it](#verification).
 
 ## Configuration
 

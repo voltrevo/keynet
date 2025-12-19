@@ -123,6 +123,8 @@ Tor will now query dnsmasq on 127.0.0.1, which will read from `/etc/hosts` and r
 
 ## Verification
 
+**NOTE**: It takes a while (hours unfortunately) for new Tor nodes to become visible in the network, and your keynet service won't work until this happens. You can check visibility by searching your node's nickname or IP at https://onionoo.torproject.org/summary.
+
 To verify your Keynet relay is working correctly, you need to make an HTTP request through Tor to your Keynet address. You can do this using:
 
 **Option 1: Tor JS (Web-based)**
