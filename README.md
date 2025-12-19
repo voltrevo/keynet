@@ -12,6 +12,15 @@ To access the service, the Tor client needs to identify the Tor relay with this 
 
 Keynet services do not use TLS because similar protection is provided via the Tor protocol — adding TLS would be redundant. This avoids any need for key signing because the keynet domain represents the Tor node's public key, so the ownership of that key is naturally secured by the cryptography and does not require attestation by certificate authorities.
 
+## Manual Setup (No Docker)
+
+Keynet is straightforward to set up manually. You only need:
+1. A Tor relay running on your server
+2. An HTTP reverse proxy (Caddy, nginx, etc.)
+3. Generated Ed25519 + RSA keypairs with matching fingerprints
+
+See [MANUAL_SETUP.md](MANUAL_SETUP.md) for full instructions.
+
 ## Quick Start
 
 Keynet proxies any HTTP service through Tor. You control what gets served via the `PROXY_TARGET` environment variable.
