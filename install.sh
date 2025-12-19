@@ -89,14 +89,16 @@ docker rm keynet 2>/dev/null || true
 
 echo ""
 echo "Starting Keynet container..."
-docker run -d \
-  --name keynet \
-  --restart unless-stopped \
-  -p 9001:9001 \
-  -p 9030:9030 \
-  -e "PROXY_TARGET=$PROXY_TARGET" \
-  -v "$KEYNET_DATA_DIR":/var/lib/tor/keys \
-  keynet || {
+
+# Detect if PROXY_TARGET is localhost and add --network=host if needed
+DOCKER_OPTS=(-d --name keynet --restart unless-stopped -p 9001:9001 -p 9030:9030 -e "PROXY_TARGET=$PROXY_TARGET" -v "$KEYNET_DATA_DIR":/var/lib/tor/keys)
+
+if [[ "$PROXY_TARGET" == "http://localhost:"* ]] || [[ "$PROXY_TARGET" == "http://127.0.0.1:"* ]]; then
+  echo "[keynet] Detected localhost target, enabling host networking..."
+  DOCKER_OPTS+=(--network=host)
+fi
+
+docker run "${DOCKER_OPTS[@]}" keynet || {
   echo "Error: Failed to start container"
   exit 1
 }

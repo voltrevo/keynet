@@ -48,8 +48,9 @@ docker run -d -p 9001:9001 -p 9030:9030 \
 
 To proxy any HTTP service through Keynet:
 
+**For a local service on localhost:**
+
 ```bash
-# For a local service on localhost:8000, use --network=host
 docker run -d -p 9001:9001 -p 9030:9030 \
   -e PROXY_TARGET=http://localhost:8000 \
   -v ~/keynet-data/keys:/var/lib/tor/keys \
@@ -57,16 +58,7 @@ docker run -d -p 9001:9001 -p 9030:9030 \
   keynet
 ```
 
-Or with a service on the same Docker network:
-
-```bash
-docker run -d -p 9001:9001 -p 9030:9030 \
-  -e PROXY_TARGET=http://myservice:8000 \
-  -v ~/keynet-data/keys:/var/lib/tor/keys \
-  keynet
-```
-
-Or with a remote service:
+**For a remote service:**
 
 ```bash
 docker run -d -p 9001:9001 -p 9030:9030 \
@@ -75,7 +67,9 @@ docker run -d -p 9001:9001 -p 9030:9030 \
   keynet
 ```
 
-**Important:** The `PROXY_TARGET` must be a full URL (`http://host:port`) that the container can reach. Use `--network=host` only when proxying services on localhost.
+The installation script automatically detects localhost targets and adds `--network=host` for you.
+
+**Important:** The `PROXY_TARGET` must be a full URL (`http://host:port`) that the container can reach. Use `--network=host` when proxying services on localhost.
 
 ## Installation
 
@@ -141,11 +135,8 @@ On startup you'll see output similar to:
 Set this environment variable to specify what HTTP service to proxy:
 
 ```bash
-# Proxy a local service (requires --network=host)
+# Proxy a local service on localhost (use --network=host)
 -e PROXY_TARGET=http://localhost:8000
-
-# Proxy a service on the same Docker network
--e PROXY_TARGET=http://myservice:8000
 
 # Proxy a remote service
 -e PROXY_TARGET=http://192.168.1.5:3000
