@@ -61,13 +61,13 @@ ServerDNSAllowBrokenConfig 1
 ExitPolicyRejectPrivate 0
 
 # Exit policy: must match where your HTTP service is reachable
-ExitPolicy accept 127.0.0.1:80
+ExitPolicy accept 127.0.0.1:80 # or the IP you need (tor doesn't allow hostname here)
 ExitPolicy reject *:*
 ```
 
 **Important:** The `DataDirectory` in torrc must point to the same directory you passed to `keynet-setup.ts`. For example, if you ran:
 ```bash
-npx tsx src/keynet-setup.ts /var/lib/tor /path/to/ed25519-key.pem
+npx tsx src/keynet-setup.ts /var/lib/tor
 ```
 
 Then your torrc must have:
