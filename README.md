@@ -77,23 +77,20 @@ The Meta RPC Server provides endpoints for:
 
 ### Usage Examples
 
-Route requests by network name, chain ID, or alias:
+Route requests by network name, chain ID, or alias (via Tor):
 
-```bash
-# By network name
-curl -X POST http://[keynet-addr].keynet/ethereum \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 1}'
+```
+POST http://[keynet-addr].keynet/ethereum
+Content-Type: application/json
 
-# By chain ID
-curl -X POST http://[keynet-addr].keynet/1 \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 1}'
+{"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 1}
+```
 
-# By alias (eth, arb, op, poly, matic)
-curl -X POST http://[keynet-addr].keynet/eth \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 1}'
+Other routing options:
+
+```
+POST http://[keynet-addr].keynet/1              # By chain ID
+POST http://[keynet-addr].keynet/eth            # By alias (eth, arb, op, poly, matic)
 ```
 
 ### API Endpoints
