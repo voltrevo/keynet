@@ -49,11 +49,20 @@ docker run -d -p 9001:9001 -p 9030:9030 \
 To proxy any HTTP service through Keynet:
 
 ```bash
-# Make sure your service is running on localhost:8000
+# For a local service on localhost:8000, use --network=host
 docker run -d -p 9001:9001 -p 9030:9030 \
   -e PROXY_TARGET=http://localhost:8000 \
   -v ~/keynet-data/keys:/var/lib/tor/keys \
   --network=host \
+  keynet
+```
+
+Or with a service on the same Docker network:
+
+```bash
+docker run -d -p 9001:9001 -p 9030:9030 \
+  -e PROXY_TARGET=http://myservice:8000 \
+  -v ~/keynet-data/keys:/var/lib/tor/keys \
   keynet
 ```
 
@@ -66,23 +75,30 @@ docker run -d -p 9001:9001 -p 9030:9030 \
   keynet
 ```
 
-**Important:** The `PROXY_TARGET` must be a full URL (`http://host:port`) that the container can reach.
+**Important:** The `PROXY_TARGET` must be a full URL (`http://host:port`) that the container can reach. Use `--network=host` only when proxying services on localhost.
 
 ## Installation
 
 ### Automated Install
 
-This will prompt for your relay's nickname (used in tor consensus):
+This will prompt for your relay's nickname and proxy target:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | bash
 ```
 
-You can specify the nickname and proxy target:
+You can also specify these as environment variables to skip prompts:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | \
   TOR_NICKNAME=MyRelayName PROXY_TARGET=http://localhost:8000 bash
+```
+
+Or use the demo mode:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | \
+  TOR_NICKNAME=MyRelayName PROXY_TARGET=demo bash
 ```
 
 This script will:
@@ -125,22 +141,26 @@ On startup you'll see output similar to:
 Set this environment variable to specify what HTTP service to proxy:
 
 ```bash
-# Proxy a local service
+# Proxy a local service (requires --network=host)
 -e PROXY_TARGET=http://localhost:8000
 
-# Proxy a remote service on your network
+# Proxy a service on the same Docker network
+-e PROXY_TARGET=http://myservice:8000
+
+# Proxy a remote service
 -e PROXY_TARGET=http://192.168.1.5:3000
 
 # Demo mode: use the included Meta RPC Server
 -e PROXY_TARGET=demo
 ```
 
-**Note:** Keynet always exits to `127.0.0.1:80` locally via its reverse proxy, regardless of where the PROXY_TARGET is located.
+**Note:** Keynet always exits to `127.0.0.1:80` locally via its reverse proxy, regardless of where the `PROXY_TARGET` is located.
 
-**The container will:**
-- Validate that `PROXY_TARGET` is configured (fail with helpful message if missing)
-- Test connectivity on startup (retry up to 5 times)
-- Exit with a clear error message if the target is unreachable
+**Container behavior:**
+- Validates that `PROXY_TARGET` is configured (fails with helpful message if missing)
+- Tests connectivity on startup (retries up to 5 times with 2-second intervals)
+- Exits with a clear error message and troubleshooting tips if target is unreachable
+- For demo mode, automatically starts the Meta RPC Server on port 3000
 
 ## Demo: Meta RPC Server
 

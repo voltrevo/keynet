@@ -18,6 +18,23 @@ fi
 echo "Using Tor nickname: $TOR_NICKNAME"
 echo ""
 
+# Check if PROXY_TARGET is provided
+if [ -z "${PROXY_TARGET:-}" ]; then
+  echo "Enter the proxy target (the service to serve through Keynet):"
+  echo "  - 'demo' for Meta RPC Server (default)"
+  echo "  - 'http://localhost:8000' for a local service"
+  echo "  - 'http://example.com:3000' for a remote service"
+  read -r PROXY_TARGET < /dev/tty
+  
+  if [ -z "$PROXY_TARGET" ]; then
+    echo "Using default: demo"
+    PROXY_TARGET="demo"
+  fi
+fi
+
+echo "Using proxy target: $PROXY_TARGET"
+echo ""
+
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
   echo "Docker not found. Installing Docker..."
@@ -77,6 +94,7 @@ docker run -d \
   --restart unless-stopped \
   -p 9001:9001 \
   -p 9030:9030 \
+  -e "PROXY_TARGET=$PROXY_TARGET" \
   -v "$KEYNET_DATA_DIR":/var/lib/tor/keys \
   keynet || {
   echo "Error: Failed to start container"
@@ -85,6 +103,10 @@ docker run -d \
 
 echo ""
 echo "=== Installation Complete! ==="
+echo ""
+echo "Configuration:"
+echo "  Tor Nickname: $TOR_NICKNAME"
+echo "  Proxy Target: $PROXY_TARGET"
 echo ""
 echo "Keynet is now running. View logs with:"
 echo "  docker logs -f keynet"
