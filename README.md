@@ -1,7 +1,6 @@
 # Keynet
 
-Keynet is a special TLD for securely serving http over Tor, keeping clients anonymous but not
-requiring anonymity for the server.
+Keynet is a special TLD for securely serving HTTP over Tor, keeping clients anonymous but not requiring anonymity for the server.
 
 Keynet services have URLs like this:
 
@@ -9,46 +8,90 @@ Keynet services have URLs like this:
 
 Where `[encoded-key]` is the Tor relay's Ed25519 identity key.
 
-To access the service, the Tor client needs identify the Tor relay with this key and specify
-it as the exit node of the circuit. Within that node, this domain will point back to itself
-(using `/etc/hosts`) so it can fulfil the request locally.
+To access the service, the Tor client needs to identify the Tor relay with this key and specify it as the exit node of the circuit. Within that node, this domain will point back to itself (using `/etc/hosts`) so it can fulfill the request locally.
 
-Keynet services do not use TLS because similar protection is provided via the Tor protocol - adding
-TLS would be redundant. This avoids any need for key signing because the keynet domain represents
-the Tor node's public key, so the ownership of that key is naturally secured by the cryptography
-and does not require attestation by certificate authorities.
+Keynet services do not use TLS because similar protection is provided via the Tor protocol — adding TLS would be redundant. This avoids any need for key signing because the keynet domain represents the Tor node's public key, so the ownership of that key is naturally secured by the cryptography and does not require attestation by certificate authorities.
 
-## Quick Install
+## Quick Start
+
+Keynet proxies any HTTP service through Tor. You control what gets served via the `PROXY_TARGET` environment variable.
+
+### Demo Mode (Meta RPC Server)
+
+Try the included Meta RPC Server demo:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | PROXY_TARGET=demo bash
+```
+
+Or manually:
+
+```bash
+docker build --build-arg TOR_NICKNAME=MyRelayName -t keynet .
+docker run -d -p 9001:9001 -p 9030:9030 \
+  -e PROXY_TARGET=demo \
+  -v ~/keynet-data/keys:/var/lib/tor/keys \
+  keynet
+```
+
+### Proxy Your Own Service
+
+To proxy any HTTP service through Keynet:
+
+```bash
+# Make sure your service is running on localhost:8000
+docker run -d -p 9001:9001 -p 9030:9030 \
+  -e PROXY_TARGET=http://localhost:8000 \
+  -v ~/keynet-data/keys:/var/lib/tor/keys \
+  --network=host \
+  keynet
+```
+
+Or with a remote service:
+
+```bash
+docker run -d -p 9001:9001 -p 9030:9030 \
+  -e PROXY_TARGET=http://myservice.example.com:3000 \
+  -v ~/keynet-data/keys:/var/lib/tor/keys \
+  keynet
+```
+
+**Important:** The `PROXY_TARGET` must be a full URL (`http://host:port`) that the container can reach.
+
+## Installation
+
+### Automated Install
 
 This will prompt for your relay's nickname (used in tor consensus):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | bash'
+curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | bash
 ```
 
-You can also specify it in the command like this:
+You can specify the nickname and proxy target:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | TOR_NICKNAME=MyRelayName bash
+curl -fsSL https://raw.githubusercontent.com/voltrevo/keynet/main/install.sh | \
+  TOR_NICKNAME=MyRelayName PROXY_TARGET=http://localhost:8000 bash
 ```
 
 This script will:
 - Install Docker if not already installed
 - Clone the Keynet repository
 - Build the Docker image with your chosen nickname
-- Start the container with persistent key storage
+- Start the container with persistent key storage and your configured proxy target
 
-## Building and Running Manually
-
-From this directory:
+### Manual Build and Run
 
 ```bash
 # Build the image with a unique relay nickname (required)
 docker build --build-arg TOR_NICKNAME=MyRelayName -t keynet .
 
-# Run the container
+# Run with a proxy target
 docker run -d -p 9001:9001 -p 9030:9030 \
+  -e PROXY_TARGET=http://localhost:8000 \
   -v ~/keynet-data/keys:/var/lib/tor/keys \
+  --network=host \
   keynet
 ```
 
@@ -58,24 +101,46 @@ On startup you'll see output similar to:
 
 ```text
 [keynet] keynet address: http://abcdefghijklmnopqrstuvwx.keynet/
+[keynet] ✓ Successfully connected to PROXY_TARGET
 ```
 
-Inside the container, that hostname resolves via `/etc/hosts` to the container's IP, and Caddy serves your Ed25519-backed HTTP endpoint at that URL.
+Your service is now accessible at `http://[keynet-addr].keynet/` via Tor.
 
-## Meta RPC Server
+## Configuration
 
-Keynet includes a built-in **Meta RPC Server** that provides random load-balanced JSON-RPC access to multiple blockchain networks. This allows you to run a public RPC endpoint with no TLS or certificate management required.
+### PROXY_TARGET (Required)
+
+Set this environment variable to specify what HTTP service to proxy:
+
+```bash
+# Proxy a local service
+-e PROXY_TARGET=http://localhost:8000
+
+# Proxy a remote service
+-e PROXY_TARGET=http://192.168.1.5:3000
+
+# Demo mode: use the included Meta RPC Server
+-e PROXY_TARGET=demo
+```
+
+**The container will:**
+- Validate that `PROXY_TARGET` is configured (fail with helpful message if missing)
+- Test connectivity on startup (retry up to 5 times)
+- Exit with a clear error message if the target is unreachable
+
+## Demo: Meta RPC Server
+
+When `PROXY_TARGET=demo`, Keynet starts a built-in Meta RPC Server that provides random load-balanced JSON-RPC access to multiple blockchain networks.
 
 ### Supported Networks
 
-The Meta RPC Server provides endpoints for:
 - **Ethereum** (Chain ID: 1) — 5 public endpoints
 - **Arbitrum** (Chain ID: 42161) — 5 public endpoints
 - **Optimism** (Chain ID: 10) — 5 public endpoints
 - **Base** (Chain ID: 8453) — 5 public endpoints
 - **Polygon** (Chain ID: 137) — 5 public endpoints
 
-### Usage Examples
+### Usage
 
 Route requests by network name, chain ID, or alias (via Tor):
 
@@ -104,6 +169,36 @@ Request bodies must be valid JSON-RPC 2.0 format. The server randomly selects fr
 
 **Request size limit**: Maximum 1MB per request to prevent abuse.
 
-## RSA Fingerprint Matching
+## Architecture
+
+### Key Generation
+
+On first run, Keynet generates:
+- **Ed25519 master key** — Used as the Keynet address (domain identifier)
+- **RSA identity key** — Used in Tor consensus; fingerprint first byte matches Ed25519 first byte for efficient relay discovery
+
+Keys are persisted in the mounted volume, so the same Keynet address is used across container restarts.
+
+### RSA Fingerprint Matching
 
 The setup automatically generates an RSA keypair whose SHA-1 fingerprint matches the first byte of the Ed25519 public key. This enables efficient discovery of the relay hosting the keynet service.
+
+### Network Flow
+
+```
+Tor Client
+  ↓
+Tor Network (encrypted)
+  ↓
+Your Tor Relay (exit node)
+  ↓
+Caddy (reverse proxy on :80)
+  ↓
+PROXY_TARGET (your service)
+```
+
+The container runs:
+- **Tor relay** (ports 9001, 9030) — Tor networking
+- **dnsmasq** — DNS resolution for `.keynet` domain
+- **Caddy** — HTTP reverse proxy
+- **PROXY_TARGET service** (optional) — Your service or Meta RPC Server
