@@ -366,10 +366,10 @@ curl -X POST http://localhost:3000/ethereum \\
       </div>
     </div>
     
-    <div class="footer">
-      <p><strong>Note:</strong> All endpoints are tested free public RPC providers. Response times vary based on network conditions and geographic location.</p>
-      <p style="margin-top: 10px;"><strong>API:</strong> Get server info at <code class="highlight">GET /info</code></p>
-    </div>
+     <div class="footer">
+       <p><strong>Note:</strong> All endpoints are tested free public RPC providers. Response times vary based on network conditions and geographic location.</p>
+       <p style="margin-top: 10px;"><strong>API:</strong> Get server info at <code class="highlight">GET /info</code> or health status at <code class="highlight">GET /health</code></p>
+     </div>
   </div>
 </body>
 </html>
@@ -523,6 +523,13 @@ async function handleRequest(
     return;
   }
 
+  // Handle GET /health for health checks
+  if (req.method === 'GET' && req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', uptime: getUptime() }));
+    return;
+  }
+
   // Only allow POST requests for RPC calls
   if (req.method !== 'POST') {
     res.writeHead(405, { 'Content-Type': 'application/json' });
@@ -565,11 +572,15 @@ async function handleRequest(
     return;
   }
 
-  // Read request body
+  // Read request body with size limit (1MB)
+  const MAX_BODY_SIZE = 1024 * 1024; // 1MB
   let body = '';
   await new Promise<void>((resolve, reject) => {
     req.on('data', (chunk) => {
       body += chunk;
+      if (body.length > MAX_BODY_SIZE) {
+        reject(new Error(`Request body exceeds maximum size of ${MAX_BODY_SIZE} bytes`));
+      }
     });
     req.on('end', () => resolve());
     req.on('error', reject);
@@ -645,9 +656,10 @@ server.listen(PORT, () => {
   console.log(`  POST /1`);
   console.log(`  POST /arbitrum`);
   console.log(`  POST /42161`);
-  console.log(`\nAPI endpoints:`);
-  console.log(`  GET / - HTML help page`);
-  console.log(`  GET /info - JSON server info`);
-  console.log(`\nWith request body (standard JSON-RPC):`);
-  console.log(`  { "jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 1 }`);
+   console.log(`\nAPI endpoints:`);
+   console.log(`  GET / - HTML help page`);
+   console.log(`  GET /info - JSON server info`);
+   console.log(`  GET /health - Health check`);
+   console.log(`\nWith request body (standard JSON-RPC):`);
+   console.log(`  { "jsonrpc": "2.0", "method": "eth_blockNumber", "params": [], "id": 1 }`);
 });

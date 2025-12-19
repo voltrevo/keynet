@@ -86,25 +86,37 @@ echo "[keynet] All services started. Monitoring processes..."
 while true; do
   # Check if Meta RPC Server is still alive
   if ! kill -0 $RPC_SERVER_PID 2>/dev/null; then
-    echo "[keynet] ERROR: Meta RPC Server process died (PID $RPC_SERVER_PID)"
+    echo "[keynet] $(date '+%Y-%m-%d %H:%M:%S') ERROR: Meta RPC Server process died (PID $RPC_SERVER_PID)"
+    wait $RPC_SERVER_PID 2>/dev/null
+    exit_code=$?
+    echo "[keynet] Exit code: $exit_code"
     exit 1
   fi
   
   # Check if Tor process is still alive
   if ! kill -0 $TOR_PID 2>/dev/null; then
-    echo "[keynet] ERROR: Tor process died (PID $TOR_PID)"
+    echo "[keynet] $(date '+%Y-%m-%d %H:%M:%S') ERROR: Tor process died (PID $TOR_PID)"
+    wait $TOR_PID 2>/dev/null
+    exit_code=$?
+    echo "[keynet] Exit code: $exit_code"
     exit 1
   fi
   
   # Check if Caddy process is still alive
   if ! kill -0 $CADDY_PID 2>/dev/null; then
-    echo "[keynet] ERROR: Caddy process died (PID $CADDY_PID)"
+    echo "[keynet] $(date '+%Y-%m-%d %H:%M:%S') ERROR: Caddy process died (PID $CADDY_PID)"
+    wait $CADDY_PID 2>/dev/null
+    exit_code=$?
+    echo "[keynet] Exit code: $exit_code"
     exit 1
   fi
   
   # Check if dnsmasq process is still alive
   if ! kill -0 $DNSMASQ_PID 2>/dev/null; then
-    echo "[keynet] ERROR: dnsmasq process died (PID $DNSMASQ_PID)"
+    echo "[keynet] $(date '+%Y-%m-%d %H:%M:%S') ERROR: dnsmasq process died (PID $DNSMASQ_PID)"
+    wait $DNSMASQ_PID 2>/dev/null
+    exit_code=$?
+    echo "[keynet] Exit code: $exit_code"
     exit 1
   fi
   
