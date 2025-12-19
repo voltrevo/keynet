@@ -2,7 +2,6 @@
 set -euo pipefail
 
 DATA_DIR="/var/lib/tor"
-CERT_DIR="/etc/keynet"
 CADDYFILE="/etc/caddy/Caddyfile"
 
 # 1) Validate PROXY_TARGET is configured
@@ -38,9 +37,8 @@ cp /etc/tor/torrc.template "$TORRC"
 
 # 4) Generate or load Ed25519 keys and derive keynet address
 #    Also generates RSA keys with fingerprint matching first byte of Ed25519 public key
-CERT_KEY="${CERT_DIR}/ed25519-key.pem"
 echo "[keynet] generating/loading Ed25519 and matching RSA keys..."
-KEYNET_ADDR=$(npx tsx /app/src/keynet-setup.ts "$DATA_DIR/keys" "$CERT_KEY")
+KEYNET_ADDR=$(npx tsx /app/src/keynet-setup.ts "$DATA_DIR/keys")
 
 # Ensure Tor can read the keys
 chown -R debian-tor:debian-tor "$DATA_DIR/keys"

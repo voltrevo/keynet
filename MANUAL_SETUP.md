@@ -19,8 +19,10 @@ cd keynet && npm install
 Generate matching keypairs:
 
 ```bash
-npx tsx src/keynet-setup.ts /path/to/tor/keys /path/to/ed25519-key.pem
+npx tsx src/keynet-setup.ts /path/to/tor/keys
 ```
+
+This writes the generated keys to `/path/to/tor/keys/` in Tor's standard format (the script creates or loads keys from this directory).
 
 Output example:
 ```
@@ -29,6 +31,12 @@ Output example:
 ```
 
 The script generates RSA keys repeatedly until the first byte matches (typically ~10 seconds, ~256 attempts).
+
+If you need the Ed25519 private key in PEM format (for external use like TLS certificates), you can export it:
+
+```bash
+npx tsx src/export-ed25519-pem.ts /path/to/tor/keys /path/to/ed25519-key.pem
+```
 
 ## Tor Configuration
 
@@ -56,6 +64,18 @@ ExitPolicyRejectPrivate 0
 ExitPolicy accept 127.0.0.1:80
 ExitPolicy reject *:*
 ```
+
+**Important:** The `DataDirectory` in torrc must point to the same directory you passed to `keynet-setup.ts`. For example, if you ran:
+```bash
+npx tsx src/keynet-setup.ts /var/lib/tor /path/to/ed25519-key.pem
+```
+
+Then your torrc must have:
+```
+DataDirectory /var/lib/tor
+```
+
+Tor reads the generated keys (`ed25519_master_id_secret_key` and `ed25519_master_id_public_key`) from the `DataDirectory`.
 
 ## DNS Resolution
 

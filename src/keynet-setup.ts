@@ -62,7 +62,7 @@ export function deriveKeynetAddress(publicKey: Uint8Array): string {
 /**
  * Write PEM private key for TLS
  */
-function writePemPrivateKey(path: string, privateKey: Uint8Array): void {
+export function writePemPrivateKey(path: string, privateKey: Uint8Array): void {
   // PKCS#8 format for Ed25519
   const pkcs8Header = Buffer.from([
     0x30, 0x2e, // SEQUENCE, 46 bytes
@@ -164,7 +164,6 @@ function readTorRsaSecretKey(path: string): string {
  */
 export function setupKeynet(
   torKeysDir: string,
-  pemKeyPath: string,
   forceRegenerate = false
 ): KeynetSetupResult {
   const publicKeyPath = `${torKeysDir}/ed25519_master_id_public_key`;
@@ -210,36 +209,33 @@ export function setupKeynet(
     writeTorRsaSecretKey(rsaSecretKeyPath, rsaKeyPair.privateKey);
   }
   
-  // Derive keynet address
-  const keynetAddress = deriveKeynetAddress(publicKey);
-  
-  // Write PEM key for TLS
-  writePemPrivateKey(pemKeyPath, privateKey);
-  
-  // Generate fingerprint (base64)
-  const ed25519Fingerprint = Buffer.from(publicKey).toString('base64').replace(/=/g, '');
-  
-  return {
-    keynetAddress,
-    ed25519Fingerprint,
-    publicKeyHex: Buffer.from(publicKey).toString('hex'),
-  };
-}
+   // Derive keynet address
+   const keynetAddress = deriveKeynetAddress(publicKey);
+   
+   // Generate fingerprint (base64)
+   const ed25519Fingerprint = Buffer.from(publicKey).toString('base64').replace(/=/g, '');
+   
+   return {
+     keynetAddress,
+     ed25519Fingerprint,
+     publicKeyHex: Buffer.from(publicKey).toString('hex'),
+   };
+ }
 
 // CLI interface
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   
-  if (args.length < 2) {
-    console.error('Usage: keynet-setup <tor-keys-dir> <pem-key-path> [--force]');
+  if (args.length < 1) {
+    console.error('Usage: keynet-setup <tor-keys-dir> [--force]');
     process.exit(1);
   }
   
-  const [torKeysDir, pemKeyPath] = args;
+  const [torKeysDir] = args;
   const forceRegenerate = args.includes('--force');
   
   try {
-    const result = setupKeynet(torKeysDir, pemKeyPath, forceRegenerate);
+    const result = setupKeynet(torKeysDir, forceRegenerate);
     
     // Output just the keynet address for shell scripts
     console.log(result.keynetAddress);
