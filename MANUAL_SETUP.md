@@ -14,6 +14,25 @@ If you prefer to skip Docker, you can set up Keynet manually. The process is str
 
 ## Key Generation
 
+Keynet requires a special key generation step that Tor doesn't do automatically. Here's why:
+
+**Tor's default key generation** produces:
+- Ed25519 master key (for identity)
+- RSA identity key (for Tor consensus)
+
+But the two keys are **independent** — their fingerprints don't match.
+
+**Keynet's requirement:** The first byte of the Ed25519 public key (which becomes your domain name) must match the first byte of the RSA fingerprint. This enables **efficient relay discovery**:
+
+- Clients extract the first byte from the Keynet domain
+- They look for a relay whose RSA fingerprint starts with that byte
+- Without this, clients would need to scan all ~9000+ Tor relays to find yours
+
+So you need this repository's key generation script, which:
+1. Generates Ed25519 keys
+2. Generates RSA keys **repeatedly** until the first byte matches
+3. Stores them in Tor's format
+
 The only code you need is in this repository:
 
 ```bash
